@@ -1,10 +1,12 @@
 # local folder
+my_dir
 .local/*
 work_dirs/*
 artifacts/*
 !.local/README.md
 !.local/demo.jpg
 *.pth
+pths/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
