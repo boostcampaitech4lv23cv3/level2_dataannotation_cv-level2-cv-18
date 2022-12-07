@@ -1,5 +1,4 @@
 # local folder
-my_dir
 .local/*
 work_dirs/*
 artifacts/*
@@ -7,6 +6,14 @@ artifacts/*
 !.local/demo.jpg
 *.pth
 pths/*
+trained_models/*
+
+# symbolic link
+develop/convert_mlt.py
+develop/dataset.py
+develop/deteval.py
+develop/inference.py
+develop/train.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

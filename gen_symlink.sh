@@ -14,23 +14,26 @@ if [ "$#" -ne 1 ]; then
     echo -e "Usage: ${GREEN}./gen_symlink.sh${NC} ${BLUE}SOURCE_FILE${NC}"
     echo ""
     echo -e "   ex) ${GREEN}./gen_symlink.sh${NC} ${BLUE}train${YELLOW}_ver2${BLUE}.py${NC}"
-    echo -e "       Generated ${BLUE}./my_dir/train.py${NC} ← ${YELLOW}./my_dir/train_ver2.py${NC}"
+    echo -e "       Generated ${BLUE}./develop/train.py${NC} ← ${YELLOW}./develop/train_ver2.py${NC}"
     echo ""
+    exit
 fi
 
 filename=$(basename -- "$1")
 extension="${filename##*.}"
 filename="${filename%.*}"
-symlink_filename="${filename%_*}.$extension"
+filename="${filename#*_}"
+filename="${filename%_*}"
+symlink_filename="$filename.$extension"
 
-if [ -L "./my_dir/$symlink_filename" ]; then
-    rm -f "./my_dir/$symlink_filename"
+if [ -L "./develop/$symlink_filename" ]; then
+    rm -f "./develop/$symlink_filename"
 fi
 
-if [ ! -f "./my_dir/$1" ]; then
-    echo -e "${RED}File Not Found!${NC} [./my_dir/$1]"
+if [ ! -f "./develop/$1" ]; then
+    echo -e "${RED}File Not Found!${NC} [./develop/$1]"
 else
-    ln -s "$1" "./my_dir/$symlink_filename"
+    ln -s "$1" "./develop/$symlink_filename"
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Success!${NC}"
     else
