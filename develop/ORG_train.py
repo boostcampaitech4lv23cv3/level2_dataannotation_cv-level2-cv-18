@@ -1,5 +1,4 @@
 import sys
-sys.path.append("/opt/ml/code")
 import os
 import os.path as osp
 import time
