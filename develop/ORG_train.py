@@ -15,6 +15,9 @@ from east_dataset import EASTDataset
 from dataset import SceneTextDataset
 from model import EAST
 
+import wandb
+
+TEST_NAME = "First WandB Test"
 
 def parse_args():
     parser = ArgumentParser()
@@ -77,6 +80,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                     'IoU loss': extra_info['iou_loss']
                 }
                 pbar.set_postfix(val_dict)
+                wandb.log(val_dict)
 
         scheduler.step()
 
@@ -92,6 +96,10 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
 
 
 def main(args):
+    wandb.init(project="OCR Data annotation",
+               entity="light-observer",
+               name=TEST_NAME
+              )
     do_training(**args.__dict__)
 
 
