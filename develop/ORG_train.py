@@ -109,7 +109,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
 
             ckpt_fpath = osp.join(model_dir, pth_name)
             torch.save(model.state_dict(), ckpt_fpath)
-            symlink_force(osp.join(model_dir, pth_name), "latest.pth")
+            symlink_force(pth_name, osp.join(model_dir, "latest.pth"))
 
 
 def main(args):
