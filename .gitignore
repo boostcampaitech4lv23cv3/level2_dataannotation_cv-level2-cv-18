@@ -7,6 +7,7 @@ artifacts/*
 *.pth
 pths/*
 trained_models/*
+predictions/*
 
 # symbolic link
 develop/convert_mlt.py
@@ -14,6 +15,11 @@ develop/dataset.py
 develop/deteval.py
 develop/inference.py
 develop/train.py
+convert_mlt.py
+dataset.py
+deteval.py
+inference.py
+train.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
