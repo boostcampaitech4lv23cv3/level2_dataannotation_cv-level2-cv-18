@@ -120,8 +120,6 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                 else:
                     loss.backward()
                     optimizer.step()
-                
-                scheduler.step()
 
                 loss_val = loss.item()
                 epoch_loss += loss_val
