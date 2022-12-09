@@ -129,9 +129,9 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
         else:
             early_stop_cnt +=1
 
-            if early_stop_cnt == early_stop:
-                print(f'no more best model training')
-                break
+        if early_stop_cnt > early_stop:
+            print(f'no more best model training')
+            break
             
 
         if (epoch + 1) % save_interval == 0:
