@@ -13,8 +13,8 @@ if [ "$#" -ne 1 ]; then
     echo ""
     echo -e "Usage: ${GREEN}./gen_symlink.sh${NC} ${BLUE}SOURCE_FILE${NC}"
     echo ""
-    echo -e "   ex) ${GREEN}./gen_symlink.sh${NC} ${BLUE}train${YELLOW}_ver2${BLUE}.py${NC}"
-    echo -e "       Generated ${BLUE}./develop/train.py${NC} ← ${YELLOW}./develop/train_ver2.py${NC}"
+    echo -e "   ex) ${GREEN}./gen_symlink.sh${NC} ${YELLOW}Txxxx_${BLUE}train${YELLOW}_ver2${BLUE}.py${NC}"
+    echo -e "       Generated ${BLUE}./develop/train.py${NC} ← ${YELLOW}./develop/Txxxx_train_ver2.py${NC}"
     echo ""
     exit
 fi
