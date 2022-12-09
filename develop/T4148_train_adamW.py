@@ -54,6 +54,7 @@ def parse_args():
     parser.add_argument('--save_interval', type=int, default=5)
     parser.add_argument('--wandb_name', type=str, default='Unnamed Test')
     parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--early_stop', type=int, default=201)
 
     args = parser.parse_args()
 
@@ -64,7 +65,7 @@ def parse_args():
 
 
 def do_training(data_dir, model_dir, device, image_size, input_size, num_workers, batch_size,
-                learning_rate, max_epoch, save_interval, wandb_name, seed):
+                learning_rate, max_epoch, save_interval, wandb_name, seed, early_stop):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed) # if use multi-GPU
@@ -85,6 +86,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[max_epoch // 2], gamma=0.1)
 
     early_stop_cnt=0
+    best_score = 9999 #현재는 epoch_loss기준이라 이렇게 설정
     model.train()
     for epoch in range(max_epoch):
         epoch_loss, epoch_start = 0, time.time()
@@ -110,19 +112,40 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
 
         scheduler.step()
 
-        print('Mean loss: {:.4f} | Elapsed time: {} | no more best count : {}'.format(
+        
+        print('Mean loss: {:.4f} | Elapsed time: {} | early stop count : {}'.format(
             epoch_loss / num_batches, timedelta(seconds=time.time() - epoch_start), early_stop_cnt))
+
+        if best_score > epoch_loss : # 이후에 요 epoch_loss와 부등호만 반대로 해주면 f1성능으로 평가 가능
+            best_score = epoch_loss
+            print(f'New Best Model ->Epoch [{epoch+1}] / best_score : [{best_score}]')
+            best_pth_name = f'best_model.pth'
+            ckpt_fpath = osp.join(model_dir, best_pth_name)
+            torch.save(model.state_dict(),ckpt_fpath)
+            #symlink_force(pth_name, osp.join(model_dir, "latest.pth"))
+            #원하는 경우 best로 설정
+
+
+        else:
+            early_stop_cnt +=1
+
+            if early_stop_cnt == early_stop:
+                print(f'no more best model training')
+                break
+            
 
         if (epoch + 1) % save_interval == 0:
             if not osp.exists(model_dir):
                 os.makedirs(model_dir)
 
             now = datetime.now()
-            pth_name = f'{now.strftime("%y%m%d_%H%M%S")}.pth'
+            pth_name = f'{epoch+1}epoch_{now.strftime("%y%m%d_%H%M%S")}.pth'
 
             ckpt_fpath = osp.join(model_dir, pth_name)
             torch.save(model.state_dict(), ckpt_fpath)
             symlink_force(pth_name, osp.join(model_dir, "latest.pth"))
+        
+        
 
 
 def main(args):
