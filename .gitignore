@@ -202,3 +202,5 @@ cython_debug/
 faster_rcnn_inference.ipynb
 results/
 
+# wonguk data
+/EDA/HierText_Convert

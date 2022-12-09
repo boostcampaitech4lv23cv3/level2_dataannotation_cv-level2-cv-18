@@ -1,9 +1,10 @@
 import sys
 import os
+import errno
 import os.path as osp
 import time
 import math
-from datetime import timedelta
+from datetime import datetime, timedelta
 from argparse import ArgumentParser
 
 import torch
@@ -18,7 +19,17 @@ from model import EAST
 
 import wandb
 
-TEST_NAME = "First WandB Test"
+
+def symlink_force(target, link_name):
+    try:
+        os.symlink(target, link_name)
+    except OSError as e:
+        if e.errno == errno.EEXIST:
+            os.remove(link_name)
+            os.symlink(target, link_name)
+        else:
+            raise e
+
 
 def parse_args():
     parser = ArgumentParser()
@@ -38,6 +49,7 @@ def parse_args():
     parser.add_argument('--learning_rate', type=float, default=1e-3)
     parser.add_argument('--max_epoch', type=int, default=200)
     parser.add_argument('--save_interval', type=int, default=5)
+    parser.add_argument('--wandb_name', type=str, default='Unnamed Test')
 
     args = parser.parse_args()
 
@@ -48,7 +60,7 @@ def parse_args():
 
 
 def do_training(data_dir, model_dir, device, image_size, input_size, num_workers, batch_size,
-                learning_rate, max_epoch, save_interval):
+                learning_rate, max_epoch, save_interval, wandb_name):
     dataset = SceneTextDataset(data_dir, split='train', image_size=image_size, crop_size=input_size)
     dataset = EASTDataset(dataset)
     num_batches = math.ceil(len(dataset) / batch_size)
@@ -92,14 +104,18 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
             if not osp.exists(model_dir):
                 os.makedirs(model_dir)
 
-            ckpt_fpath = osp.join(model_dir, 'latest.pth')
+            now = datetime.now()
+            pth_name = f'{now.strftime("%y%m%d_%H%M%S")}.pth'
+
+            ckpt_fpath = osp.join(model_dir, pth_name)
             torch.save(model.state_dict(), ckpt_fpath)
+            symlink_force(pth_name, osp.join(model_dir, "latest.pth"))
 
 
 def main(args):
     wandb.init(project="OCR Data annotation",
                entity="light-observer",
-               name=TEST_NAME
+               name=args.wandb_name
               )
     do_training(**args.__dict__)
 
