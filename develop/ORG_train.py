@@ -11,6 +11,7 @@ import torch
 from torch import cuda
 from torch.utils.data import DataLoader
 from torch.optim import lr_scheduler
+from torch.cuda import amp
 from tqdm import tqdm
 
 import numpy as np
@@ -34,6 +35,17 @@ def symlink_force(target, link_name):
             raise e
 
 
+def str2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
+
 def parse_args():
     parser = ArgumentParser()
 
@@ -54,6 +66,7 @@ def parse_args():
     parser.add_argument('--save_interval', type=int, default=5)
     parser.add_argument('--wandb_name', type=str, default='Unnamed Test')
     parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--use_amp', type=str2bool, default=True, help='True or False')
 
     args = parser.parse_args()
 
@@ -64,7 +77,7 @@ def parse_args():
 
 
 def do_training(data_dir, model_dir, device, image_size, input_size, num_workers, batch_size,
-                learning_rate, max_epoch, save_interval, wandb_name, seed):
+                learning_rate, max_epoch, save_interval, wandb_name, seed, use_amp):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed) # if use multi-GPU
@@ -79,6 +92,11 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, worker_init_fn=np.random.seed(seed))
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    if use_amp == True:
+        print("[AMP] Enabled")
+        scaler = amp.GradScaler(enabled=use_amp)
+
     model = EAST()
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
@@ -88,13 +106,22 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     for epoch in range(max_epoch):
         epoch_loss, epoch_start = 0, time.time()
         with tqdm(total=num_batches) as pbar:
-            for img, gt_score_map, gt_geo_map, roi_mask in train_loader:
+            for i, (img, gt_score_map, gt_geo_map, roi_mask) in enumerate(train_loader):
                 pbar.set_description('[Epoch {}]'.format(epoch + 1))
 
-                loss, extra_info = model.train_step(img, gt_score_map, gt_geo_map, roi_mask)
                 optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+                with amp.autocast(enabled=use_amp):
+                    loss, extra_info = model.train_step(img, gt_score_map, gt_geo_map, roi_mask)
+
+                if use_amp:
+                    scaler.scale(loss).backward()
+                    scaler.step(optimizer)
+                    scaler.update()
+                else:
+                    loss.backward()
+                    optimizer.step()
+                
+                scheduler.step()
 
                 loss_val = loss.item()
                 epoch_loss += loss_val
