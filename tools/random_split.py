@@ -17,7 +17,7 @@ random.seed(SEED)
 ## File exists check
 if len(sys.argv) != 2 or os.path.isdir(sys.argv[1]) == False:
     print("Usage : python random_split.py DATA_DIR")
-    print("    Ex) python random_split.py ~/~/input/data/ICDAR17_Korean/ufo")
+    print("    Ex) python random_split.py ~/input/data/ICDAR17_Korean/ufo")
     exit()
 
 ann_file = os.path.join(sys.argv[1], "annotation.json")
@@ -33,7 +33,7 @@ annotation_json = (json.loads(file_contents))['images']
 shuffle_keys = list(annotation_json.keys())
 random.shuffle(shuffle_keys)
 
-train_size = int(len(shuffle_keys) * 0.7)
+train_size = max(1, int(len(shuffle_keys) * 0.702))
 tes_size = len(shuffle_keys) - train_size
 
 train = dict()
