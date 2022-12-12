@@ -374,6 +374,10 @@ class SceneTextDataset(Dataset):
         funcs = []
         if self.color_jitter:
             funcs.append(A.ColorJitter(0.5, 0.5, 0.5, 0.25))
+        funcs.append(A.CLAHE(clip_limit=4.0))
+        funcs.append(A.GaussNoise(p=0.5))
+        funcs.append(A.ISONoise(p=0.5))
+        funcs.append(A.ChannelShuffle(p=0.5))
         if self.normalize:
             funcs.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
         transform = A.Compose(funcs)
