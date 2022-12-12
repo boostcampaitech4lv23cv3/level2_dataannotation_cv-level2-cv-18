@@ -72,6 +72,7 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--use_val', type=str2bool, default=True)
     parser.add_argument('--val_interval', type=int, default=1)
+    parser.add_argument('--early_stop', type=int, default=20)
 
     args = parser.parse_args()
 
@@ -87,7 +88,7 @@ def parse_args():
 
 
 def do_training(data_dir, model_dir, device, image_size, input_size, num_workers, batch_size,
-                learning_rate, max_epoch, save_interval, wandb_name, seed, use_val, val_interval):
+                learning_rate, max_epoch, save_interval, wandb_name, seed, use_val, val_interval, early_stop):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed) # if use multi-GPU
@@ -125,9 +126,12 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
 
     model = EAST()
     model.to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, betas=(0.9,0.999), weight_decay=0.01)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[max_epoch // 2], gamma=0.1)
 
+
+    stop_cnt = 0
+    best_score = 0
     for epoch in range(max_epoch):
         model.train()
         epoch_loss, epoch_start = 0, time.time()
@@ -156,8 +160,12 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
 
         scheduler.step()
 
-        print('Mean loss: {:.4f} | Elapsed time: {}'.format(
-            epoch_loss / num_batches, timedelta(seconds=time.time() - epoch_start)))
+        if stop_cnt == 0 :
+            print('Mean loss: {:.4f} | Elapsed time: {}'.format(
+                epoch_loss / num_batches, timedelta(seconds=time.time() - epoch_start)))
+        else:
+            print('Mean loss: {:.4f} | Elapsed time: {} | no more best count : {}'.format(
+                epoch_loss / num_batches, timedelta(seconds=time.time() - epoch_start), stop_cnt))
 
         if use_val and (epoch + 1) % val_interval == 0:
             val_start = time.time()
@@ -180,17 +188,34 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                     'Val/Precision': ret['total']['precision'], 'Val/Recall': ret['total']['recall'],
                     'Val/F1': ret['total']['hmean']
                 })
+            f1_score = ret['total']['hmean']
+
+            if best_score < f1_score :
+                best_score = f1_score
+                print(f'New Best Model -> Epoch [{epoch+1}] / best_score : [{best_score}]')
+                best_pth_name = f'{(wandb_name.replace(" ","_")).lower()}_best_model.pth'
+                ckpt_fpath = osp.join(model_dir, best_pth_name)
+                torch.save(model.state_dict(),ckpt_fpath)
+                symlink_force(best_pth_name, osp.join(model_dir, "best_model.pth"))
+                stop_cnt = 0
+            
+            else:
+                stop_cnt +=1
 
         if (epoch + 1) % save_interval == 0:
             if not osp.exists(model_dir):
                 os.makedirs(model_dir)
-
             now = datetime.now()
-            pth_name = f'{now.strftime("%y%m%d_%H%M%S")}.pth'
+            pth_name = f'{(wandb_name.replace(" ","_")).lower()}_{epoch+1}epoch_{now.strftime("%y%m%d_%H%M%S")}.pth'
 
             ckpt_fpath = osp.join(model_dir, pth_name)
             torch.save(model.state_dict(), ckpt_fpath)
             symlink_force(pth_name, osp.join(model_dir, "latest.pth"))
+
+
+        if stop_cnt > early_stop :
+            print(f'no more best model training | Training is over')
+            break
 
 
 def main(args):
