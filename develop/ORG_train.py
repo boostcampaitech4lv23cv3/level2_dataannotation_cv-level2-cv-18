@@ -174,6 +174,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                 pred_bboxes = list()
                 for step in tqdm(range(val_num_batches)):
                     images = val_images[batch_size * step:batch_size * (step + 1)]
+                    images.to(device)
                     pred_bboxes.extend(detect(model, images, input_size))
 
                 pred_bboxes_dict = {image_fname:bboxes for image_fname, bboxes in zip(gt_bboxes_dict.keys(), pred_bboxes)}
@@ -197,6 +198,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                 ckpt_fpath = osp.join(model_dir, best_pth_name)
                 torch.save(model.state_dict(),ckpt_fpath)
                 #symlink_force(pth_name, osp.join(model_dir, "best_model.pth"))
+                stop_cnt = 0
             
             else:
                 stop_cnt +=1
