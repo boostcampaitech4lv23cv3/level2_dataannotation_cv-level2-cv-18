@@ -193,10 +193,10 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
             if best_score < f1_score :
                 best_score = f1_score
                 print(f'New Best Model -> Epoch [{epoch+1}] / best_score : [{best_score}]')
-                best_pth_name = f'best_model.pth'
+                best_pth_name = f'{(wandb_name.replace(" ","_")).lower()}_best_model.pth'
                 ckpt_fpath = osp.join(model_dir, best_pth_name)
                 torch.save(model.state_dict(),ckpt_fpath)
-                #symlink_force(pth_name, osp.join(model_dir, "best_model.pth"))
+                symlink_force(best_pth_name, osp.join(model_dir, "best_model.pth"))
             
             else:
                 stop_cnt +=1
@@ -205,7 +205,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
             if not osp.exists(model_dir):
                 os.makedirs(model_dir)
             now = datetime.now()
-            pth_name = f'{epoch+1}epoch_{now.strftime("%y%m%d_%H%M%S")}.pth'
+            pth_name = f'{(wandb_name.replace(" ","_")).lower()}_{epoch+1}epoch_{now.strftime("%y%m%d_%H%M%S")}.pth'
 
             ckpt_fpath = osp.join(model_dir, pth_name)
             torch.save(model.state_dict(), ckpt_fpath)
