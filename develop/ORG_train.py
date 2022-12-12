@@ -197,6 +197,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                 ckpt_fpath = osp.join(model_dir, best_pth_name)
                 torch.save(model.state_dict(),ckpt_fpath)
                 symlink_force(best_pth_name, osp.join(model_dir, "best_model.pth"))
+                stop_cnt = 0
             
             else:
                 stop_cnt +=1
