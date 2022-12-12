@@ -97,32 +97,16 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     np.random.seed(seed)
     random.seed(seed)
 
-    dataset = SceneTextDataset(data_dir, split='train', image_size=image_size, crop_size=input_size)
-    dataset = EASTDataset(dataset)
-    num_batches = math.ceil(len(dataset) / batch_size)
-    train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, worker_init_fn=np.random.seed(seed))
+    train_dataset= SceneTextDataset(data_dir, split='train', image_size=image_size, crop_size=input_size)
+    train_dataset = EASTDataset(train_dataset)
+    train_num_batches = math.ceil(len(train_dataset) / batch_size)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, worker_init_fn=np.random.seed(seed))
 
-    if use_val:
-        gt_bboxes_dict = dict()
-        transcriptions_dict = dict()
-        with open(osp.join(data_dir, 'ufo/val.json')) as json_file:
-            file_contents = json_file.read()
-            annotation_json = (json.loads(file_contents))['images']
-            for image_name, ann_info in annotation_json.items():
-                gt_bboxes_dict[image_name] = list()
-                transcriptions_dict[image_name] = list()
-                for word in  ann_info['words'].values():
-                    gt_bboxes_dict[image_name].append(word['points'])
-                    transcriptions_dict[image_name].append(word['transcription'])
-        print("Load validation image...")
-        val_images = []
-        for image_name in tqdm(gt_bboxes_dict.keys()):
-            if not osp.isfile(osp.join(data_dir, f'images/{image_name}')):
-                del gt_bboxes_dict[image_name]
-                del transcriptions_dict[image_name]
-                continue
-            val_images.append(cv2.imread(osp.join(data_dir, f'images/{image_name}'))[:, :, ::-1])
-        val_num_batches = math.ceil(len(gt_bboxes_dict) / batch_size)
+
+    val_dataset = SceneTextDataset(data_dir, split='val', image_size=image_size, crop_size=input_size)
+    #val_dataset = EASTDataset(val_dataset)
+    val_num_batches = math.ceil(len(val_dataset) / batch_size)
+    val_loader = DataLoader(val_dataset, batch_size=256, shuffle=False, num_workers=num_workers)
 
     model = EAST()
     model.to(device)
@@ -135,7 +119,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     for epoch in range(max_epoch):
         model.train()
         epoch_loss, epoch_start = 0, time.time()
-        with tqdm(total=num_batches) as pbar:
+        with tqdm(total=train_num_batches) as pbar:
             for img, gt_score_map, gt_geo_map, roi_mask in train_loader:
                 pbar.set_description('[Epoch {}]'.format(epoch + 1))
 
@@ -162,37 +146,39 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
 
         if stop_cnt == 0 :
             print('Mean loss: {:.4f} | Elapsed time: {}'.format(
-                epoch_loss / num_batches, timedelta(seconds=time.time() - epoch_start)))
+                epoch_loss / train_num_batches, timedelta(seconds=time.time() - epoch_start)))
         else:
             print('Mean loss: {:.4f} | Elapsed time: {} | no more best count : {}'.format(
-                epoch_loss / num_batches, timedelta(seconds=time.time() - epoch_start), stop_cnt))
+                epoch_loss / train_num_batches, timedelta(seconds=time.time() - epoch_start), stop_cnt))
 
         if use_val and (epoch + 1) % val_interval == 0:
-            val_start = time.time()
-            model.eval()
             with torch.no_grad():
-                pred_bboxes = list()
-                for step in tqdm(range(val_num_batches)):
-                    images = val_images[batch_size * step:batch_size * (step + 1)]
-                    pred_bboxes.extend(detect(model, images, input_size))
+                model.eval()
+                with tqdm(val_loader) as pbar:
 
-                pred_bboxes_dict = {image_fname:bboxes for image_fname, bboxes in zip(gt_bboxes_dict.keys(), pred_bboxes)}
-                ret = calc_deteval_metrics(pred_bboxes_dict, gt_bboxes_dict, transcriptions_dict, verbose=True)
-                print(" ".join([f"F1: {ret['total']['hmean']:.4f}",
-                                f"Precision: {ret['total']['precision']:.4f}",
-                                f"Recall: {ret['total']['recall']:.4f}",
-                                f"| Elapsed time: {timedelta(seconds=time.time() - val_start)}"
-                              ]))
+                    pred_bboxes = []
 
-                wandb.log({
-                    'Val/Precision': ret['total']['precision'], 'Val/Recall': ret['total']['recall'],
-                    'Val/F1': ret['total']['hmean']
-                })
+                    for _, image, gt_word_bboxes, roi_mask in enumerate(pbar):
+                        val_start = time.time()
+                        pbar.set_description('[inferencing] : ')
+                        image = torch.Tensor(image).permute(2, 0, 1)
+                        pred_bboxes.extend(detect(model, image, input_size))
+                        ret = calc_deteval_metrics(pred_bboxes, gt_word_bboxes, verbose=True)
+                        print(" ".join([f"F1: {ret['total']['hmean']:.4f}",
+                                        f"Precision: {ret['total']['precision']:.4f}",
+                                        f"Recall: {ret['total']['recall']:.4f}",
+                                        f"| Elapsed time: {timedelta(seconds=time.time() - val_start)}"
+                                    ]))
+                        wandb.log({
+                            'Val/Precision': ret['total']['precision'], 'Val/Recall': ret['total']['recall'],
+                            'Val/F1': ret['total']['hmean']
+                        })
+
             f1_score = ret['total']['hmean']
 
             if best_score < f1_score :
                 best_score = f1_score
-                print(f'New Best Model -> Epoch [{epoch+1}] / best_score : [{best_score}]')
+                print(f'New Best Model -> Epoch [{epoch+1}] / best_score : [{best_score :.4}]')
                 best_pth_name = f'{(wandb_name.replace(" ","_")).lower()}_best_model.pth'
                 ckpt_fpath = osp.join(model_dir, best_pth_name)
                 torch.save(model.state_dict(),ckpt_fpath)
