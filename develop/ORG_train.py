@@ -233,7 +233,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                             val_epoch_angle_loss += extra_info['angle_loss']
                             val_epoch_iou_loss += extra_info['iou_loss']
             resDict = calc_deteval_metrics(pred_bboxes_dict, gt_bboxes_dict, transcriptions_dict)
-
+            f1_score = resDict['total']['hmean']
             print('[Valid {}]: f1_score : {:.4f} | precision : {:.4f} | recall : {:.4f}'.format(
                     epoch+1, resDict['total']['hmean'], resDict['total']['precision'], resDict['total']['recall']))
 
@@ -245,8 +245,23 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                        "Val/IoU loss": val_epoch_iou_loss / val_num_batches,
                        #"Val/Loss": val_epoch_loss / val_num_batches,
                     })
+            
+            # Early Stopping + Update Best Epoch
+            if best_score < f1_score :
+                best_score = f1_score
+                print(f'New Best Model -> Epoch [{epoch+1}] / best_score : [{best_score}]')
+                best_pth_name = f'{(wandb_name.replace(" ","_")).lower()}_best_model.pth'
+                ckpt_fpath = osp.join(model_dir, best_pth_name)
+                torch.save({'model_state_dict': model.state_dict(),
+                            'optimizer_state_dict': optimizer.state_dict(),
+                            'scheduler_state_dict': scheduler.state_dict(),
+                            }, ckpt_fpath)
+                symlink_force(best_pth_name, osp.join(model_dir, "best_model.pth"))
+                stop_cnt = 0
+            else:
+                stop_cnt +=1
 
-        # Save checkpoint + Early Stopping
+        # Save checkpoint
         if (epoch + 1) % save_interval == 0:
             if not osp.exists(model_dir):
                 os.makedirs(model_dir)
