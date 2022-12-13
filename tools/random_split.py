@@ -33,7 +33,7 @@ annotation_json = (json.loads(file_contents))['images']
 shuffle_keys = list(annotation_json.keys())
 random.shuffle(shuffle_keys)
 
-train_size = max(1, int(len(shuffle_keys) * 0.702))
+train_size = max(1, int(len(shuffle_keys) * 0.8))
 tes_size = len(shuffle_keys) - train_size
 
 train = dict()
