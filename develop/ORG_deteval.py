@@ -1,6 +1,7 @@
 import math
 from collections import namedtuple
 from copy import deepcopy
+from tqdm import tqdm
 
 import numpy as np
 
@@ -163,7 +164,7 @@ def calc_deteval_metrics(pred_bboxes_dict, gt_bboxes_dict, transcriptions_dict=N
     numGt = 0
     numDet = 0
 
-    for sample_name in gt_bboxes_dict:
+    for sample_name in tqdm(gt_bboxes_dict, desc = 'Calc metrics'):
 
         recall = 0
         precision = 0
