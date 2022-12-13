@@ -488,6 +488,7 @@ class ValidSceneTextDataset(SceneTextDataset2):
             A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)), ToTensorV2()])
     
     def load_image(self):
+        print('NEW DATASET CLASS "ValidSceneTextDataset" PROCESSING')
         for image_fname in tqdm(self.image_fnames):
             image_fpath = osp.join(self.image_dir, image_fname)
             image = cv2.imread(image_fpath)
