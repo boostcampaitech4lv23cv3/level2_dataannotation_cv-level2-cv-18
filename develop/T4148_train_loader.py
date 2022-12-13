@@ -105,7 +105,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
 
     val_dataset = SceneTextDataset(data_dir, split='val', image_size=image_size, crop_size=input_size)
     #val_dataset = EASTDataset(val_dataset)
-    val_num_batches = math.ceil(len(val_dataset) / batch_size)
+    val_num_batches = math.ceil(len(val_dataset) / 1)
     val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=num_workers)
 
     model = EAST()
@@ -117,6 +117,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     stop_cnt = 0
     best_score = 0
     for epoch in range(max_epoch):
+        """
         model.train()
         epoch_loss, epoch_start = 0, time.time()
         with tqdm(total=train_num_batches) as pbar:
@@ -150,34 +151,50 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
         else:
             print('Mean loss: {:.4f} | Elapsed time: {} | no more best count : {}'.format(
                 epoch_loss / train_num_batches, timedelta(seconds=time.time() - epoch_start), stop_cnt))
-
+        """
         if use_val and (epoch + 1) % val_interval == 0:
+            total_f1_score = 0
+            total_precision = 0
+            total_recall = 0
+
             with torch.no_grad():
                 model.eval()
-                with tqdm(val_loader) as pbar:
-
-                    pred_bboxes = []
-
-                    for _, value in enumerate(pbar):
-                        image, gt_word_bboxes, roi_mask = value
+                with tqdm(total=val_num_batches) as pbar:
+                    for images, gt_word_bboxes in val_loader:
                         val_start = time.time()
                         pbar.set_description('[inferencing] : ')
-                        pred_bboxes.extend(detect(model, image, input_size))
+
+                        pred_bboxes = []
+                        pred_bboxes.extend(detect(model, images, image_size))
                         ret = calc_deteval_metrics(pred_bboxes, gt_word_bboxes, verbose=True)
-                        print(" ".join([f"F1: {ret['total']['hmean']:.4f}",
-                                        f"Precision: {ret['total']['precision']:.4f}",
-                                        f"Recall: {ret['total']['recall']:.4f}",
-                                        f"| Elapsed time: {timedelta(seconds=time.time() - val_start)}"
-                                    ]))
-                        wandb.log({
-                            'Val/Precision': ret['total']['precision'], 'Val/Recall': ret['total']['recall'],
-                            'Val/F1': ret['total']['hmean']
-                        })
 
-            f1_score = ret['total']['hmean']
+                        total_f1_score += ret['total']['hmean']
+                        total_precision += ret['total']['precision']
+                        total_recall += ret['total']['recall']
 
-            if best_score < f1_score :
-                best_score = f1_score
+                        pbar.update(1)
+                        val_dict = {
+                            'F1': ret['total']['hmean'], 'Precision': ret['total']['precision'],
+                            'Recall': ret['total']['recall']
+                        }
+                        pbar.set_postfix(val_dict)
+
+            total_f1_score /= val_num_batches
+            total_precision /= val_num_batches
+            total_recall /= val_num_batches
+
+            print(" ".join([f"Total F1: {total_f1_score}",
+                            f"Total Precision: {total_precision}",
+                            f"Total Recall: {total_recall}",
+                            f"| Elapsed time: {timedelta(seconds=time.time() - val_start)}"
+                        ]))
+            wandb.log({
+                'Val/Precision': total_f1_score, 'Val/Recall': total_precision,
+                'Val/F1': total_recall
+            })
+
+            if best_score < total_f1_score :
+                best_score = total_f1_score
                 print(f'New Best Model -> Epoch [{epoch+1}] / best_score : [{best_score :.4}]')
                 best_pth_name = f'{(wandb_name.replace(" ","_")).lower()}_best_model.pth'
                 ckpt_fpath = osp.join(model_dir, best_pth_name)

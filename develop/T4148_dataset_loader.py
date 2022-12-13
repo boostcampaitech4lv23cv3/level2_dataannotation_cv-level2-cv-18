@@ -382,9 +382,9 @@ class SceneTextDataset(Dataset):
             funcs.append(A.ChannelShuffle(p=0.5))
             if self.normalize:
                 funcs.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
-            
 
-        else:
+        elif self.split=='val':
+            image, vertices = resize_img(image, vertices, self.image_size)
             if image.mode != 'RGB':
                 image = image.convert('RGB')
             image = np.array(image)
@@ -397,7 +397,8 @@ class SceneTextDataset(Dataset):
         if self.split == 'train':
             roi_mask = generate_roi_mask(image, vertices, labels)
             return image, word_bboxes, roi_mask
-        else:
-            return image, word_bboxes
+
+        elif self.split=='val':
+            return [image], word_bboxes
 
         
