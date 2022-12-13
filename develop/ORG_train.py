@@ -241,7 +241,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                        "Val/Cls loss": val_epoch_cls_loss / val_num_batches,
                        "Val/Angle loss": val_epoch_angle_loss / val_num_batches,
                        "Val/IoU loss": val_epoch_iou_loss / val_num_batches,
-                       "Val/Loss": val_epoch_loss / val_num_batches,
+                       #"Val/Loss": val_epoch_loss / val_num_batches,
                     })
 
         # Save checkpoint + Early Stopping
