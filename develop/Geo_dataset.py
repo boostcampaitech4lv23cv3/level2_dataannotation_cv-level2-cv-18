@@ -375,11 +375,13 @@ class SceneTextDataset(Dataset):
     def load_image(self):
         for image_fname in tqdm(self.image_fnames):
             image_fpath = osp.join(self.image_dir, image_fname)
-            image = cv2.imread(image_fpath)
+            image = cv2.imread(image_fpath,cv2.IMREAD_COLOR)
             try:
                 image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
             except:
-                raise Exception(image_fname)
+                print('FAIL to load :',image_fpath)
+                continue
+                # raise Exception(image_fname)
             
 
             vertices, labels = [], []
