@@ -134,8 +134,8 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
         try:
             checkpoint = torch.load(load_from)
             model.load_state_dict(checkpoint['model_state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            #optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            #scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         except:
             model.load_state_dict(torch.load(load_from))
         print(f"Loaded from: [{load_from}]")
