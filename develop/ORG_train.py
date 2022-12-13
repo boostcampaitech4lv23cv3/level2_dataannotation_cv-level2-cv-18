@@ -72,7 +72,7 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--use_val', type=str2bool, default=True)
     parser.add_argument('--val_interval', type=int, default=1)
-    parser.add_argument('--early_stop', type=int, default=200)
+    parser.add_argument('--early_stop', type=int, default=5)
     parser.add_argument('--load_from', type=str, default=None)
 
     args = parser.parse_args()
