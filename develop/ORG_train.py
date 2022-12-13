@@ -48,7 +48,7 @@ def str2bool(v):
         return False
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
-
+        
 
 def parse_args():
     parser = ArgumentParser()
@@ -110,7 +110,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, worker_init_fn=seed_worker)
 
     if use_val:
-        val_dataset = ValidSceneTextDataset(data_dir, split='train', image_size=image_size, crop_size=image_size, color_jitter=False)
+        val_dataset = ValidSceneTextDataset(data_dir, split='val', image_size=image_size, crop_size=image_size, color_jitter=False)
         val_dataset.load_image()
         print(f"Load valid data {len(val_dataset)}")
         valid_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=ValidSceneTextDataset.collate_fn)
