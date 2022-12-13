@@ -382,7 +382,7 @@ class SceneTextDataset(Dataset):
         if self.color_jitter:
             funcs.append(A.ColorJitter(0.5, 0.5, 0.5, 0.25))
         if self.normalize:
-            funcs.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
+            funcs.append(A.Normalize(mean=(0.485, 0.456, 0.406, std=(0.229, 0.224, 0.225)))
         transform = A.Compose(funcs)
 
         image = transform(image=image)['image']
@@ -420,7 +420,7 @@ class SceneTextDataset2(Dataset):
                 min_image_overlap=0.9, min_bbox_overlap=1.0, min_bbox_count=1, allow_partial_occurrence=False,
                 max_random_trials=100,
                 brightness=0.5, contrast=0.5, saturation=0.25, hue=0.25,
-                normalize=True, mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), to_tensor=False
+                normalize=True, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), to_tensor=False
             ))
 
         self.transform2 = CropMethod_1()
@@ -485,7 +485,7 @@ class ValidSceneTextDataset(SceneTextDataset2):
         self.prep_fn = A.Compose([
             LongestMaxSize(image_size), A.PadIfNeeded(min_height=image_size, min_width=image_size,
                                                     position=A.PadIfNeeded.PositionType.TOP_LEFT),
-            A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)), ToTensorV2()])
+            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)), ToTensorV2()])
     
     def load_image(self):
         print('NEW DATASET CLASS "ValidSceneTextDataset" PROCESSING')
