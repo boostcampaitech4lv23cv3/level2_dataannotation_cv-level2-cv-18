@@ -72,7 +72,8 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--use_val', type=str2bool, default=True)
     parser.add_argument('--val_interval', type=int, default=1)
-    parser.add_argument('--early_stop', type=int, default=20)
+    parser.add_argument('--early_stop', type=int, default=200)
+    parser.add_argument('--load_from', type=str, default=None)
 
     args = parser.parse_args()
 
@@ -88,7 +89,7 @@ def parse_args():
 
 
 def do_training(data_dir, model_dir, device, image_size, input_size, num_workers, batch_size,
-                learning_rate, max_epoch, save_interval, wandb_name, seed, use_val, val_interval, early_stop):
+                learning_rate, max_epoch, save_interval, wandb_name, seed, use_val, val_interval, early_stop, load_from):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed) # if use multi-GPU
@@ -129,6 +130,15 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, betas=(0.9,0.999), weight_decay=0.01)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[max_epoch // 2], gamma=0.1)
 
+    if load_from and osp.isfile(load_from):
+        try:
+            checkpoint = torch.load(load_from)
+            model.load_state_dict(checkpoint['model_state_dict'])
+            #optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            #scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        except:
+            model.load_state_dict(torch.load(load_from))
+        print(f"Loaded from: [{load_from}]")
 
     stop_cnt = 0
     best_score = 0
@@ -195,7 +205,10 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                 print(f'New Best Model -> Epoch [{epoch+1}] / best_score : [{best_score}]')
                 best_pth_name = f'{(wandb_name.replace(" ","_")).lower()}_best_model.pth'
                 ckpt_fpath = osp.join(model_dir, best_pth_name)
-                torch.save(model.state_dict(),ckpt_fpath)
+                torch.save({'model_state_dict': model.state_dict(),
+                            'optimizer_state_dict': optimizer.state_dict(),
+                            'scheduler_state_dict': scheduler.state_dict(),
+                            }, ckpt_fpath)
                 symlink_force(best_pth_name, osp.join(model_dir, "best_model.pth"))
                 stop_cnt = 0
             
@@ -209,7 +222,10 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
             pth_name = f'{(wandb_name.replace(" ","_")).lower()}_{epoch+1}epoch_{now.strftime("%y%m%d_%H%M%S")}.pth'
 
             ckpt_fpath = osp.join(model_dir, pth_name)
-            torch.save(model.state_dict(), ckpt_fpath)
+            torch.save({'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'scheduler_state_dict': scheduler.state_dict(),
+                        }, ckpt_fpath)
             symlink_force(pth_name, osp.join(model_dir, "latest.pth"))
 
 
