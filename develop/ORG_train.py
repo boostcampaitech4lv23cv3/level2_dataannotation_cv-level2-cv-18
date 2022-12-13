@@ -106,7 +106,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     val_dataset = SceneTextDataset(data_dir, split='val', image_size=image_size, crop_size=input_size)
     #val_dataset = EASTDataset(val_dataset)
     val_num_batches = math.ceil(len(val_dataset) / batch_size)
-    val_loader = DataLoader(val_dataset, batch_size=256, shuffle=False, num_workers=num_workers)
+    val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=num_workers)
 
     model = EAST()
     model.to(device)
@@ -158,10 +158,10 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
 
                     pred_bboxes = []
 
-                    for _, image, gt_word_bboxes, roi_mask in enumerate(pbar):
+                    for _, value in enumerate(pbar):
+                        image, gt_word_bboxes, roi_mask = value
                         val_start = time.time()
                         pbar.set_description('[inferencing] : ')
-                        image = torch.Tensor(image).permute(2, 0, 1)
                         pred_bboxes.extend(detect(model, image, input_size))
                         ret = calc_deteval_metrics(pred_bboxes, gt_word_bboxes, verbose=True)
                         print(" ".join([f"F1: {ret['total']['hmean']:.4f}",
