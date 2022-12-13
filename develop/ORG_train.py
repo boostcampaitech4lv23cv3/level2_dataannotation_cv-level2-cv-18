@@ -226,10 +226,10 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                         }
                         pbar.set_postfix(val_dict)
 
-                        if val_dict['Cls loss'] is not None:
-                            val_cls_loss += val_dict['Cls loss']
-                            val_angle_loss += val_dict['Angle loss']
-                            val_iou_loss += val_dict['IoU loss']
+                        if extra_info['cls_loss'] is not None:
+                            val_epoch_cls_loss += extra_info['cls_loss']
+                            val_epoch_angle_loss += extra_info['angle_loss']
+                            val_epoch_iou_loss += extra_info['iou_loss']
             resDict = calc_deteval_metrics(pred_bboxes_dict, gt_bboxes_dict, transcriptions_dict)
 
             print('[Valid {}]: f1_score : {:.4f} | precision : {:.4f} | recall : {:.4f}'.format(
@@ -238,9 +238,9 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
             wandb.log({"Val/F1": resDict['total']['hmean'],
                        "Val/Recall": resDict['total']['recall'],
                        "Val/Precision": resDict['total']['precision'],
-                       "Val/Cls loss": val_cls_loss / val_num_batches,
-                       "Val/Angle loss": val_angle_loss / val_num_batches,
-                       "Val/IoU loss": val_iou_loss / val_num_batches,
+                       "Val/Cls loss": val_epoch_cls_loss / val_num_batches,
+                       "Val/Angle loss": val_epoch_angle_loss / val_num_batches,
+                       "Val/IoU loss": val_epoch_iou_loss / val_num_batches,
                        "Val/Loss": val_epoch_loss / val_num_batches,
                     })
 
