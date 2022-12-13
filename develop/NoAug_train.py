@@ -22,7 +22,7 @@ import random
 from east_dataset import EASTDataset
 from dataset import SceneTextDataset
 from model import EAST
-from detect import detect
+from detect import detect as detect
 from deteval import calc_deteval_metrics
 
 import wandb
@@ -55,7 +55,7 @@ def parse_args():
 
     # Conventional args
     parser.add_argument('--data_dir', type=str,
-                        default=os.environ.get('SM_CHANNEL_TRAIN', '../input/data/ICDAR17_Korean'))
+                        default=os.environ.get('SM_CHANNEL_TRAIN', '../input/data/merged-dataset'))
     parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_MODEL_DIR',
                                                                         'trained_models'))
 
@@ -64,14 +64,14 @@ def parse_args():
 
     parser.add_argument('--image_size', type=int, default=1024)
     parser.add_argument('--input_size', type=int, default=512)
-    parser.add_argument('--batch_size', type=int, default=12)
+    parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--learning_rate', type=float, default=1e-3)
-    parser.add_argument('--max_epoch', type=int, default=200)
+    parser.add_argument('--max_epoch', type=int, default=100)
     parser.add_argument('--save_interval', type=int, default=5)
     parser.add_argument('--wandb_name', type=str, default='Unnamed Test')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--use_val', type=str2bool, default=True)
-    parser.add_argument('--val_interval', type=int, default=1)
+    parser.add_argument('--val_interval', type=int, default=5)
     parser.add_argument('--early_stop', type=int, default=20)
 
     args = parser.parse_args()
@@ -197,7 +197,6 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                 ckpt_fpath = osp.join(model_dir, best_pth_name)
                 torch.save(model.state_dict(),ckpt_fpath)
                 symlink_force(best_pth_name, osp.join(model_dir, "best_model.pth"))
-                stop_cnt = 0
             
             else:
                 stop_cnt +=1
@@ -216,6 +215,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
         if stop_cnt > early_stop :
             print(f'no more best model training | Training is over')
             break
+
 
 
 def main(args):

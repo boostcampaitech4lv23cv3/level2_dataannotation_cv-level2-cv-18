@@ -342,7 +342,6 @@ class SceneTextDataset(Dataset):
         self.anno = anno
         self.image_fnames = sorted(anno['images'].keys())
         self.image_dir = osp.join(root_dir, 'images')
-        self.split = split
 
         self.image_size, self.crop_size = image_size, crop_size
         self.color_jitter, self.normalize = color_jitter, normalize
@@ -363,26 +362,26 @@ class SceneTextDataset(Dataset):
         vertices, labels = filter_vertices(vertices, labels, ignore_under=10, drop_under=1)
 
         image = Image.open(image_fpath)
-        image, vertices = resize_img(image, vertices, self.image_size)
-        image, vertices = adjust_height(image, vertices)
-        image, vertices = rotate_img(image, vertices)
+        # image, vertices = resize_img(image, vertices, self.image_size)
+        # image, vertices = adjust_height(image, vertices)
+        # image, vertices = rotate_img(image, vertices)
+        # image, vertices = crop_img(image, vertices, labels, self.crop_size)
+        image, vertices = resize_img(image, vertices, self.crop_size)
         image, vertices = crop_img(image, vertices, labels, self.crop_size)
+
 
         if image.mode != 'RGB':
             image = image.convert('RGB')
         image = np.array(image)
 
         funcs = []
-        if self.color_jitter:
-            funcs.append(A.ColorJitter(0.5, 0.5, 0.5, 0.25))
-        funcs.append(A.CLAHE(clip_limit=4.0))
-        funcs.append(A.GaussNoise(p=0.5))
-        funcs.append(A.ISONoise(p=0.5))
-        funcs.append(A.ChannelShuffle(p=0.5))
+        # if self.color_jitter:
+        #     funcs.append(A.ColorJitter(0.5, 0.5, 0.5, 0.25))
         if self.normalize:
             funcs.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
-        transform = A.Compose(funcs)
 
+        #-------------------- Aug End --------------------#
+        transform = A.Compose(funcs)
         image = transform(image=image)['image']
         word_bboxes = np.reshape(vertices, (-1, 4, 2))
         roi_mask = generate_roi_mask(image, vertices, labels)
