@@ -440,10 +440,10 @@ class SceneTextDatasetNoAug(SceneTextDataset):
             vertices, labels = filter_vertices(vertices, labels, ignore_under=10, drop_under=1)
             image, vertices = resize_img(image, vertices, self.image_size)
             image, vertices = self.__convert__(image, vertices, self.input_size)
-            # image = A.normalize(image)
             self.images.append(image)
             self.vertices.append(vertices)
             self.labels.append(labels)
+
     def __convert__(self, img, vertices, size):
         h, w = img.shape[:2]
         ratio = size / max(h, w)
@@ -469,8 +469,9 @@ class SceneTextDatasetNoAug(SceneTextDataset):
         image = self.images[idx]
         vertices = self.vertices[idx]
         labels = self.labels[idx]
-        # image, vertices = adjust_height(image, vertices)
-        # image, vertices = rotate_img(image, vertices, angle_range=10)
+        
+        transform = A.Compose([A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))])
+        image = transform(image=image)['image']
 
         word_bboxes = np.reshape(vertices, (-1, 4, 2))
         roi_mask = generate_roi_mask(image, vertices, labels)
