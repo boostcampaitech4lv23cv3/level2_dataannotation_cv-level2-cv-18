@@ -459,28 +459,6 @@ class SceneTextDatasetNoAug(Dataset):
                 self.vertices.append(vertices)
                 self.labels.append(labels)
 
-        # for image_fname in tqdm(self.image_fnames):
-        #     image_fpath = osp.join(self.image_dir, image_fname)
-        #     image = cv2.imread(image_fpath,cv2.IMREAD_COLOR)
-        #     try:
-        #         image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
-        #     except:
-        #         print('FAIL to load :',image_fpath)
-        #         continue
-
-        #     vertices, labels = [], []
-        #     for word_info in self.anno['images'][image_fname]['words'].values():
-        #         vertices.append(np.array(word_info['points']).flatten())
-        #         labels.append(int(not word_info['illegibility']))
-        #     vertices, labels = np.array(vertices, dtype=np.float32), np.array(labels, dtype=np.int64)
-
-        #     vertices, labels = filter_vertices(vertices, labels, ignore_under=10, drop_under=1)
-        #     image, vertices = resize_img(image, vertices, self.image_size)
-        #     image, vertices = self.__convert__(image, vertices, self.input_size)
-        #     self.images.append(image)
-        #     self.vertices.append(vertices)
-        #     self.labels.append(labels)
-
     def __convert__(self, img, vertices, size):
         h, w = img.shape[:2]
         ratio = size / max(h, w)
@@ -488,18 +466,10 @@ class SceneTextDatasetNoAug(Dataset):
         if w > h:
             dst_size = (size, int(h * ratio))
             img = cv2.resize(img, dst_size, interpolation=cv2.INTER_AREA)
-            # dy = abs(dst_size[0] - dst_size[1])/2.
-            # img = cv2.copyMakeBorder(img, dy, dy, 0, 0, cv2.BORDER_CONSTANT, value=0)
-            # dy = int(dy)
-            # new_vertices[:,[1,3,5,7]] += dy
             img = cv2.copyMakeBorder(img, 0, abs(dst_size[0] - dst_size[1]), 0, 0, cv2.BORDER_CONSTANT, value=0)
         else:
             dst_size = (int(w * ratio), size)
             img = cv2.resize(img,(int(w * ratio), size),interpolation=cv2.INTER_AREA)
-            # dx = abs(dst_size[0] - dst_size[1])/2.
-            # dx = int(dx)
-            # img = cv2.copyMakeBorder(img, 0, 0, dx, dx, cv2.BORDER_CONSTANT, value=0)
-            # new_vertices[:,[0,2,4,6]] += dx
             img = cv2.copyMakeBorder(img, 0, 0, 0, abs(dst_size[0] - dst_size[1]), cv2.BORDER_CONSTANT, value=0)
 
         return img, new_vertices
