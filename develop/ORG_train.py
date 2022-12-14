@@ -94,7 +94,7 @@ def parse_args():
 
 
 def do_training(data_dir, model_dir, device, image_size, input_size, num_workers, batch_size,
-                learning_rate, max_epoch, save_interval, wandb_name, seed, use_val, val_interval, early_stop, load_from,schd
+                learning_rate, max_epoch, save_interval, wandb_name, seed, use_val, val_interval, early_stop, load_from,schd,
                 inference_size, weight_decay):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
