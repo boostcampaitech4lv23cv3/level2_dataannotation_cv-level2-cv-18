@@ -69,7 +69,7 @@ def parse_args():
     parser.add_argument('--input_size', type=int, default=512)
     parser.add_argument('--inference_size', type=int, default=1024)
     parser.add_argument('--batch_size', type=int, default=12)
-    parser.add_argument('--learning_rate', type=float, default=1e-4)
+    parser.add_argument('--learning_rate', type=float, default=1e-3)
     parser.add_argument('--weight_decay', type=float, default=1e-2)
     parser.add_argument('--max_epoch', type=int, default=200)
     parser.add_argument('--save_interval', type=int, default=5)
@@ -192,13 +192,14 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
             'Train/IoU loss': epoch_iou_loss / num_batches,
             'Train/Loss': epoch_loss / num_batches,
         })
+        
 
         if stop_cnt == 0 :
-            print('Mean loss: {:.4f} | Elapsed time: {}'.format(
-                epoch_loss / num_batches, timedelta(seconds=time.time() - epoch_start)))
+            print('Mean loss: {:.4f} | Elapsed time: {} | lr : {}'.format(
+                epoch_loss / num_batches, timedelta(seconds=time.time() - epoch_start), scheduler.get_lr()))
         else:
-            print('Mean loss: {:.4f} | Elapsed time: {} | no more best count : {}'.format(
-                epoch_loss / num_batches, timedelta(seconds=time.time() - epoch_start), stop_cnt))
+            print('Mean loss: {:.4f} | Elapsed time: {} | lr : {} | stop count : {}'.format(
+                epoch_loss / num_batches, timedelta(seconds=time.time() - epoch_start), scheduler.get_lr(), stop_cnt))
 
         # Validation
         if use_val and (epoch + 1) % val_interval == 0:
