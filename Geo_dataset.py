@@ -188,22 +188,11 @@ def is_cross_text(start_loc, length, vertices):
 
 
 def crop_img(img, vertices, labels, length):
-    '''crop img patches to obtain batch and augment
-    Input:
-        img         : PIL Image
-        vertices    : vertices of text regions <numpy.ndarray, (n,8)>
-        labels      : 1->valid, 0->ignore, <numpy.ndarray, (n,)>
-        length      : length of cropped image region
-    Output:
-        region      : cropped image region
-        new_vertices: new vertices in cropped region
-    '''
     h, w = img.shape[:2]
-    # confirm the shortest side of image >= length
     if h >= w and w < length:
-        img = img.resize((length, int(h * length / w)), Image.BILINEAR)
+        img = cv2.resize(img,(length, int(h * length / w)),interpolation=cv2.INTER_AREA)
     elif h < w and h < length:
-        img = img.resize((int(w * length / h), length), Image.BILINEAR)
+        img = cv2.resize(img,(int(w * length / h), length),interpolation=cv2.INTER_AREA)
     ratio_w = img.shape[1] / w
     ratio_h = img.shape[0] / h
     assert(ratio_w >= 1 and ratio_h >= 1)
@@ -224,7 +213,7 @@ def crop_img(img, vertices, labels, length):
         start_h = int(np.random.rand() * remain_h)
         flag = is_cross_text([start_w, start_h], length, new_vertices[labels==1,:])
     box = (start_w, start_h, start_w + length, start_h + length)
-    region = img.crop(box)
+    region = img[box]
     if new_vertices.size == 0:
         return region, new_vertices
 
@@ -420,3 +409,70 @@ class SceneTextDataset(Dataset):
 
         return image, word_bboxes, roi_mask
       
+class SceneTextDatasetNoAug(SceneTextDataset):
+    def __init__(self, root_dir, split='train', image_size=1024, input_size=512, color_jitter=True,
+                    normalize=True, augmentation=True):
+        self.input_size = input_size
+        super().__init__(root_dir = root_dir,
+                         split=split,
+                         image_size=image_size,
+                         crop_size=input_size,
+                         color_jitter=color_jitter,
+                         normalize=normalize,
+                         augmentation=augmentation)
+
+    def load_image(self):
+        for image_fname in tqdm(self.image_fnames):
+            image_fpath = osp.join(self.image_dir, image_fname)
+            image = cv2.imread(image_fpath,cv2.IMREAD_COLOR)
+            try:
+                image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+            except:
+                print('FAIL to load :',image_fpath)
+                continue
+
+            vertices, labels = [], []
+            for word_info in self.anno['images'][image_fname]['words'].values():
+                vertices.append(np.array(word_info['points']).flatten())
+                labels.append(int(not word_info['illegibility']))
+            vertices, labels = np.array(vertices, dtype=np.float32), np.array(labels, dtype=np.int64)
+
+            vertices, labels = filter_vertices(vertices, labels, ignore_under=10, drop_under=1)
+            image, vertices = resize_img(image, vertices, self.image_size)
+            image, vertices = self.__convert__(image, vertices, self.input_size)
+            # image = A.normalize(image)
+            self.images.append(image)
+            self.vertices.append(vertices)
+            self.labels.append(labels)
+    def __convert__(self, img, vertices, size):
+        h, w = img.shape[:2]
+        ratio = size / max(h, w)
+        new_vertices = vertices * ratio
+        if w > h:
+            dst_size = (size, int(h * ratio))
+            dy = abs(dst_size[0] - dst_size[1])/2.
+            dy = int(dy)
+            img = cv2.resize(img, dst_size, interpolation=cv2.INTER_AREA)
+            img = cv2.copyMakeBorder(img, dy, dy, 0, 0, cv2.BORDER_CONSTANT, value=0)
+            new_vertices[:,[1,3,5,7]] += dy
+        else:
+            dst_size = (int(w * ratio), size)
+            dx = abs(dst_size[0] - dst_size[1])/2.
+            dx = int(dx)
+            img = cv2.resize(img,(int(w * ratio), size),interpolation=cv2.INTER_AREA)
+            img = cv2.copyMakeBorder(img, 0, 0, dx, dx, cv2.BORDER_CONSTANT, value=0)
+            new_vertices[:,[0,2,4,6]] += dx
+
+        return img, new_vertices
+
+    def __getitem__(self, idx):
+        image = self.images[idx]
+        vertices = self.vertices[idx]
+        labels = self.labels[idx]
+        # image, vertices = adjust_height(image, vertices)
+        # image, vertices = rotate_img(image, vertices, angle_range=10)
+
+        word_bboxes = np.reshape(vertices, (-1, 4, 2))
+        roi_mask = generate_roi_mask(image, vertices, labels)
+
+        return image, word_bboxes, roi_mask
