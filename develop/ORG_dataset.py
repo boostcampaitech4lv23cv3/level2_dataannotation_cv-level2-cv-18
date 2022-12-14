@@ -489,9 +489,8 @@ class ValidSceneTextDataset(SceneTextDataset2):
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)), ToTensorV2()])
     def __load_item__(self, image_fname):
         image_fpath = osp.join(self.image_dir, image_fname)
-        image = cv2.imread(image_fpath)
-        image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
-        self.orig_sizes.append(image.shape[:2])
+        image = Image.open(image_fpath)
+        orig_size = (image.height, image.width)
         vertices, labels, transcriptions = [], [], []
         for word_info in self.anno['images'][image_fname]['words'].values():
             vertices.append(np.array(word_info['points']).flatten())
@@ -499,20 +498,21 @@ class ValidSceneTextDataset(SceneTextDataset2):
             transcriptions.append(word_info['transcription'])
         vertices, labels = np.array(vertices, dtype=np.float32), np.array(labels, dtype=np.int64)
         vertices, labels = filter_vertices(vertices, labels, ignore_under=10, drop_under=1)
-        image = Image.open(image_fpath)
         image, vertices = resize_img(image, vertices, self.image_size)
         image = np.array(image)
-        return image, vertices, labels, transcriptions
+        image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+        return image, vertices, labels, transcriptions, orig_size
 
     def load_image(self):
         with multiprocessing.Pool() as pool:
             items = pool.map(self.__load_item__, tqdm(self.image_fnames))
             items = [ item for item in items if item is not None]
-            for image, vertices, labels, transcriptions in items:
+            for image, vertices, labels, transcriptions, orig_size in items:
                 self.images.append(self.prep_fn(image=image)['image'])
                 self.vertices.append(vertices.reshape(-1,4,2))
                 self.labels.append(labels)
                 self.transcriptions.append(transcriptions)
+                self.orig_sizes.append(orig_size)
 
     def __getitem__(self, idx):
         image = self.images[idx]
