@@ -114,7 +114,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, worker_init_fn=seed_worker)
 
     if use_val:
-        val_dataset = ValidSceneTextDataset(data_dir, split='val', image_size=image_size, crop_size=image_size, color_jitter=False)
+        val_dataset = ValidSceneTextDataset(data_dir, split='val', image_size=inference_size, crop_size=inference_size, color_jitter=False)
         val_dataset.load_image()
         print(f"Load valid data {len(val_dataset)}")
         valid_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=ValidSceneTextDataset.collate_fn)
@@ -133,7 +133,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
         print(f"Loaded from: [{load_from}]")
 
     model.to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, betas=(0.9,0.999), weight_decay=0.01)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, betas=(0.9,0.999), weight_decay=weight_decay)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[max_epoch // 2], gamma=0.1)
 
     stop_cnt = 0
