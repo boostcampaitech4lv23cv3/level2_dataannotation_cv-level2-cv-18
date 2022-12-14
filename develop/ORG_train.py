@@ -13,6 +13,7 @@ from torch import cuda
 from torch.utils.data import DataLoader
 from torch.optim import lr_scheduler
 from custom_scheduler import CosineAnnealingWarmUpRestarts
+
 from tqdm import tqdm
 from glob import glob
 
@@ -79,6 +80,7 @@ def parse_args():
     parser.add_argument('--early_stop', type=int, default=5)
     parser.add_argument('--load_from', type=str, default=None)
     parser.add_argument('--schd', type=str, default='multisteplr') #cosignlr #reducelr
+    
 
     args = parser.parse_args()
 
@@ -302,12 +304,13 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
 
 def main(args):
     wandb.init(project="OCR Data annotation",
-               entity="light-observer",
-               name=args.wandb_name
-              )
+            entity="light-observer",
+            name=args.wandb_name
+            )
     do_training(**args.__dict__)
 
 
 if __name__ == '__main__':
     args = parse_args()
+
     main(args)
