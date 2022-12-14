@@ -19,7 +19,8 @@ import numpy as np
 import random
 
 from east_dataset import EASTDataset
-from dataset import SceneTextDataset, ValidSceneTextDataset
+from dataset import ValidSceneTextDataset
+from Geo_dataset import SceneTextDataset
 from model import EAST
 
 from detect import get_bboxes
