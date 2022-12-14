@@ -121,9 +121,6 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
         val_num_batches = math.ceil(len(val_dataset) / batch_size)
 
     model = EAST()
-    model.to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, betas=(0.9,0.999), weight_decay=weight_decay)
-    scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[max_epoch // 2], gamma=0.1)
 
     if load_from and osp.isfile(load_from):
         try:
