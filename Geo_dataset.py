@@ -410,13 +410,13 @@ class SceneTextDataset(Dataset):
         return image, word_bboxes, roi_mask
       
 class SceneTextDatasetNoAug(SceneTextDataset):
-    def __init__(self, root_dir, split='train', image_size=1024, input_size=512, color_jitter=True,
+    def __init__(self, root_dir, split='train', image_size=1024, crop_size=512, color_jitter=True,
                     normalize=True, augmentation=True):
-        self.input_size = input_size
+        self.input_size = crop_size
         super().__init__(root_dir = root_dir,
                          split=split,
                          image_size=image_size,
-                         crop_size=input_size,
+                         crop_size=crop_size,
                          color_jitter=color_jitter,
                          normalize=normalize,
                          augmentation=augmentation)
@@ -450,18 +450,20 @@ class SceneTextDatasetNoAug(SceneTextDataset):
         new_vertices = vertices * ratio
         if w > h:
             dst_size = (size, int(h * ratio))
-            dy = abs(dst_size[0] - dst_size[1])/2.
-            dy = int(dy)
             img = cv2.resize(img, dst_size, interpolation=cv2.INTER_AREA)
-            img = cv2.copyMakeBorder(img, dy, dy, 0, 0, cv2.BORDER_CONSTANT, value=0)
-            new_vertices[:,[1,3,5,7]] += dy
+            # dy = abs(dst_size[0] - dst_size[1])/2.
+            # img = cv2.copyMakeBorder(img, dy, dy, 0, 0, cv2.BORDER_CONSTANT, value=0)
+            # dy = int(dy)
+            # new_vertices[:,[1,3,5,7]] += dy
+            img = cv2.copyMakeBorder(img, 0, abs(dst_size[0] - dst_size[1]), 0, 0, cv2.BORDER_CONSTANT, value=0)
         else:
             dst_size = (int(w * ratio), size)
-            dx = abs(dst_size[0] - dst_size[1])/2.
-            dx = int(dx)
             img = cv2.resize(img,(int(w * ratio), size),interpolation=cv2.INTER_AREA)
-            img = cv2.copyMakeBorder(img, 0, 0, dx, dx, cv2.BORDER_CONSTANT, value=0)
-            new_vertices[:,[0,2,4,6]] += dx
+            # dx = abs(dst_size[0] - dst_size[1])/2.
+            # dx = int(dx)
+            # img = cv2.copyMakeBorder(img, 0, 0, dx, dx, cv2.BORDER_CONSTANT, value=0)
+            # new_vertices[:,[0,2,4,6]] += dx
+            img = cv2.copyMakeBorder(img, 0, 0, 0, abs(dst_size[0] - dst_size[1]), cv2.BORDER_CONSTANT, value=0)
 
         return img, new_vertices
 
