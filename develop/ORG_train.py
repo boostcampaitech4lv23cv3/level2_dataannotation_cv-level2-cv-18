@@ -198,8 +198,8 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
             print('Mean loss: {:.4f} | Elapsed time: {} | lr : {}'.format(
                 epoch_loss / num_batches, timedelta(seconds=time.time() - epoch_start), scheduler.get_lr()))
         else:
-            print('Mean loss: {:.4f} | Elapsed time: {} | no more best count : {}'.format(
-                epoch_loss / num_batches, timedelta(seconds=time.time() - epoch_start), stop_cnt))
+            print('Mean loss: {:.4f} | Elapsed time: {} | lr : {} | stop count : {}'.format(
+                epoch_loss / num_batches, timedelta(seconds=time.time() - epoch_start), scheduler.get_lr(), stop_cnt))
 
         # Validation
         if use_val and (epoch + 1) % val_interval == 0:
