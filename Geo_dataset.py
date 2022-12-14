@@ -1,3 +1,4 @@
+import multiprocessing
 import os.path as osp
 import math
 import json
@@ -409,40 +410,79 @@ class SceneTextDataset(Dataset):
 
         return image, word_bboxes, roi_mask
       
-class SceneTextDatasetNoAug(SceneTextDataset):
+class SceneTextDatasetNoAug(Dataset):
     def __init__(self, root_dir, split='train', image_size=1024, crop_size=512, color_jitter=True,
                     normalize=True, augmentation=True):
         self.input_size = crop_size
-        super().__init__(root_dir = root_dir,
-                         split=split,
-                         image_size=image_size,
-                         crop_size=crop_size,
-                         color_jitter=color_jitter,
-                         normalize=normalize,
-                         augmentation=augmentation)
+        with open(osp.join(root_dir, 'ufo/{}.json'.format(split)), 'r') as f:
+            anno = json.load(f)
+
+        self.anno = anno
+        self.image_fnames = sorted(anno['images'].keys())
+        self.image_dir = osp.join(root_dir, 'images')
+
+        self.image_size, self.crop_size = image_size, crop_size
+
+        self.images = []
+        self.vertices = []
+        self.labels = []
+
+        self.load_image()
+
+    def __len__(self):
+        return len(self.image_fnames)
+    
+    def __load_item__(self, image_fname):
+        image_fpath = osp.join(self.image_dir, image_fname)
+        image = cv2.imread(image_fpath,cv2.IMREAD_COLOR)
+        try:
+            image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+        except:
+            print('FAIL to load :',image_fpath)
+            return None, None, None
+        vertices, labels = [], []
+        for word_info in self.anno['images'][image_fname]['words'].values():
+            vertices.append(np.array(word_info['points']).flatten())
+            labels.append(int(not word_info['illegibility']))
+        vertices, labels = np.array(vertices, dtype=np.float32), np.array(labels, dtype=np.int64)
+        vertices, labels = filter_vertices(vertices, labels, ignore_under=10, drop_under=1)
+        image, vertices = resize_img(image, vertices, self.image_size)
+        image, vertices = self.__convert__(image, vertices, self.input_size)
+        return image, vertices, labels
 
     def load_image(self):
-        for image_fname in tqdm(self.image_fnames):
-            image_fpath = osp.join(self.image_dir, image_fname)
-            image = cv2.imread(image_fpath,cv2.IMREAD_COLOR)
-            try:
-                image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
-            except:
-                print('FAIL to load :',image_fpath)
-                continue
-
-            vertices, labels = [], []
-            for word_info in self.anno['images'][image_fname]['words'].values():
-                vertices.append(np.array(word_info['points']).flatten())
-                labels.append(int(not word_info['illegibility']))
-            vertices, labels = np.array(vertices, dtype=np.float32), np.array(labels, dtype=np.int64)
-
-            vertices, labels = filter_vertices(vertices, labels, ignore_under=10, drop_under=1)
-            image, vertices = resize_img(image, vertices, self.image_size)
-            image, vertices = self.__convert__(image, vertices, self.input_size)
+        task = None
+        items = None
+        with multiprocessing.Pool() as pool:
+            items = pool.map(self.__load_item__, tqdm(self.image_fnames))
+            for image, vertices, labels in items:
+                if image == None:
+                    continue
             self.images.append(image)
             self.vertices.append(vertices)
             self.labels.append(labels)
+
+        # for image_fname in tqdm(self.image_fnames):
+        #     image_fpath = osp.join(self.image_dir, image_fname)
+        #     image = cv2.imread(image_fpath,cv2.IMREAD_COLOR)
+        #     try:
+        #         image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+        #     except:
+        #         print('FAIL to load :',image_fpath)
+        #         continue
+
+        #     vertices, labels = [], []
+        #     for word_info in self.anno['images'][image_fname]['words'].values():
+        #         vertices.append(np.array(word_info['points']).flatten())
+        #         labels.append(int(not word_info['illegibility']))
+        #     vertices, labels = np.array(vertices, dtype=np.float32), np.array(labels, dtype=np.int64)
+
+        #     vertices, labels = filter_vertices(vertices, labels, ignore_under=10, drop_under=1)
+        #     image, vertices = resize_img(image, vertices, self.image_size)
+        #     image, vertices = self.__convert__(image, vertices, self.input_size)
+        #     self.images.append(image)
+        #     self.vertices.append(vertices)
+        #     self.labels.append(labels)
 
     def __convert__(self, img, vertices, size):
         h, w = img.shape[:2]
