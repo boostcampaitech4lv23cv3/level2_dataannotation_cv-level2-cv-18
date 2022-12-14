@@ -19,7 +19,8 @@ import numpy as np
 import random
 
 from east_dataset import EASTDataset
-from dataset import SceneTextDataset, ValidSceneTextDataset
+from dataset import ValidSceneTextDataset
+from Geo_dataset import SceneTextDataset
 from model import EAST
 
 from detect import get_bboxes
@@ -64,15 +65,17 @@ def parse_args():
 
     parser.add_argument('--image_size', type=int, default=1024)
     parser.add_argument('--input_size', type=int, default=512)
-    parser.add_argument('--batch_size', type=int, default=16)
-    parser.add_argument('--learning_rate', type=float, default=1e-3)
+    parser.add_argument('--inference_size', type=int, default=1024)
+    parser.add_argument('--batch_size', type=int, default=12)
+    parser.add_argument('--learning_rate', type=float, default=1e-4)
+    parser.add_argument('--weight_decay', type=float, default=1e-2)
     parser.add_argument('--max_epoch', type=int, default=200)
     parser.add_argument('--save_interval', type=int, default=5)
     parser.add_argument('--wandb_name', type=str, default='Unnamed Test')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--use_val', type=str2bool, default=True)
     parser.add_argument('--val_interval', type=int, default=1)
-    parser.add_argument('--early_stop', type=int, default=200)
+    parser.add_argument('--early_stop', type=int, default=5)
     parser.add_argument('--load_from', type=str, default=None)
 
     args = parser.parse_args()
@@ -89,7 +92,8 @@ def parse_args():
 
 
 def do_training(data_dir, model_dir, device, image_size, input_size, num_workers, batch_size,
-                learning_rate, max_epoch, save_interval, wandb_name, seed, use_val, val_interval, early_stop, load_from):
+                learning_rate, max_epoch, save_interval, wandb_name, seed, use_val, val_interval, early_stop, load_from,
+                inference_size, weight_decay):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed) # if use multi-GPU
@@ -117,6 +121,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
         val_num_batches = math.ceil(len(val_dataset) / batch_size)
 
     model = EAST()
+
     if load_from and osp.isfile(load_from):
         try:
             checkpoint = torch.load(load_from)
@@ -231,7 +236,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                             val_epoch_angle_loss += extra_info['angle_loss']
                             val_epoch_iou_loss += extra_info['iou_loss']
             resDict = calc_deteval_metrics(pred_bboxes_dict, gt_bboxes_dict, transcriptions_dict)
-
+            f1_score = resDict['total']['hmean']
             print('[Valid {}]: f1_score : {:.4f} | precision : {:.4f} | recall : {:.4f}'.format(
                     epoch+1, resDict['total']['hmean'], resDict['total']['precision'], resDict['total']['recall']))
 
@@ -243,8 +248,23 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                        "Val/IoU loss": val_epoch_iou_loss / val_num_batches,
                        #"Val/Loss": val_epoch_loss / val_num_batches,
                     })
+            
+            # Early Stopping + Update Best Epoch
+            if best_score < f1_score :
+                best_score = f1_score
+                print(f'New Best Model -> Epoch [{epoch+1}] / best_score : [{best_score}]')
+                best_pth_name = f'{(wandb_name.replace(" ","_")).lower()}_best_model.pth'
+                ckpt_fpath = osp.join(model_dir, best_pth_name)
+                torch.save({'model_state_dict': model.state_dict(),
+                            'optimizer_state_dict': optimizer.state_dict(),
+                            'scheduler_state_dict': scheduler.state_dict(),
+                            }, ckpt_fpath)
+                symlink_force(best_pth_name, osp.join(model_dir, "best_model.pth"))
+                stop_cnt = 0
+            else:
+                stop_cnt +=1
 
-        # Save checkpoint + Early Stopping
+        # Save checkpoint
         if (epoch + 1) % save_interval == 0:
             if not osp.exists(model_dir):
                 os.makedirs(model_dir)
