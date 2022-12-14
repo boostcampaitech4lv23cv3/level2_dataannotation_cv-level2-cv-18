@@ -20,7 +20,8 @@ import numpy as np
 import random
 
 from east_dataset import EASTDataset
-from dataset import SceneTextDataset, ValidSceneTextDataset
+from dataset import ValidSceneTextDataset
+from Geo_dataset import SceneTextDataset
 from model import EAST
 
 from detect import get_bboxes
@@ -66,8 +67,9 @@ def parse_args():
     parser.add_argument('--image_size', type=int, default=1024)
     parser.add_argument('--input_size', type=int, default=512)
     parser.add_argument('--inference_size', type=int, default=1024)
-    parser.add_argument('--batch_size', type=int, default=16)
-    parser.add_argument('--learning_rate', type=float, default=1e-3)
+    parser.add_argument('--batch_size', type=int, default=12)
+    parser.add_argument('--learning_rate', type=float, default=1e-4)
+    parser.add_argument('--weight_decay', type=float, default=1e-2)
     parser.add_argument('--max_epoch', type=int, default=200)
     parser.add_argument('--save_interval', type=int, default=5)
     parser.add_argument('--wandb_name', type=str, default='Unnamed Test')
@@ -92,8 +94,8 @@ def parse_args():
 
 
 def do_training(data_dir, model_dir, device, image_size, input_size, num_workers, batch_size,
-                learning_rate, max_epoch, save_interval, wandb_name, seed, use_val, val_interval, early_stop, load_from,schd,
-                inference_size):
+                learning_rate, max_epoch, save_interval, wandb_name, seed, use_val, val_interval, early_stop, load_from,schd
+                inference_size, weight_decay):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed) # if use multi-GPU
@@ -121,6 +123,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
         val_num_batches = math.ceil(len(val_dataset) / batch_size)
 
     model = EAST()
+
     if load_from and osp.isfile(load_from):
         try:
             checkpoint = torch.load(load_from)
