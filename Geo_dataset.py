@@ -439,7 +439,7 @@ class SceneTextDatasetNoAug(Dataset):
             image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
         except:
             print('FAIL to load :',image_fpath)
-            return None, None, None
+            return None
         vertices, labels = [], []
         for word_info in self.anno['images'][image_fname]['words'].values():
             vertices.append(np.array(word_info['points']).flatten())
@@ -451,16 +451,13 @@ class SceneTextDatasetNoAug(Dataset):
         return image, vertices, labels
 
     def load_image(self):
-        task = None
-        items = None
         with multiprocessing.Pool() as pool:
             items = pool.map(self.__load_item__, tqdm(self.image_fnames))
+            items = [ item for item in items if item is not None]
             for image, vertices, labels in items:
-                if image == None:
-                    continue
-            self.images.append(image)
-            self.vertices.append(vertices)
-            self.labels.append(labels)
+                self.images.append(image)
+                self.vertices.append(vertices)
+                self.labels.append(labels)
 
         # for image_fname in tqdm(self.image_fnames):
         #     image_fpath = osp.join(self.image_dir, image_fname)
