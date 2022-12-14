@@ -13,7 +13,7 @@ from torch import cuda
 from torch.utils.data import DataLoader
 from torch.optim import lr_scheduler
 from custom_scheduler import CosineAnnealingWarmUpRestarts
-from sweep import update_args, get_sweep_cfg
+
 from tqdm import tqdm
 from glob import glob
 
@@ -80,7 +80,7 @@ def parse_args():
     parser.add_argument('--early_stop', type=int, default=5)
     parser.add_argument('--load_from', type=str, default=None)
     parser.add_argument('--schd', type=str, default='multisteplr') #cosignlr #reducelr
-    parser.add_argument('--sweep', type=bool, default=False, help='sweep option')
+    
 
     args = parser.parse_args()
 
@@ -303,31 +303,14 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
 
 
 def main(args):
-    
-    
-    if args.sweep:
-        # if you want to use tags, put tags=['something'] in wandb.init
-        wandb_run = wandb.init(config=args.__dict__, reinit=True)
-        wandb_run.name = args.work_dir_exp.split('/')[-1]  # run name
-        
-        args = update_args(args, wandb.config)
-
-        do_training(**args.__dict__)
-        wandb_run.finish()
-    else:
-        wandb.init(project="OCR Data annotation",
-               entity="light-observer",
-               name=args.wandb_name
-              )
+    wandb.init(project="OCR Data annotation",
+            entity="light-observer",
+            name=args.wandb_name
+            )
     do_training(**args.__dict__)
 
 
 if __name__ == '__main__':
     args = parse_args()
-    if args.sweep:
-        sweep_cfg = get_sweep_cfg()
-        # you must to change project name
-        sweep_id = wandb.sweep(sweep=sweep_cfg, entity='mg_generation', project='data_annotation_seonah')
-        wandb.agent(sweep_id=sweep_id, function=partial(main, args))
-    else:
-        main(args)
+
+    main(args)
