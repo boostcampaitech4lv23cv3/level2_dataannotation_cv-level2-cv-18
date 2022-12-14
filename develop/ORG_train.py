@@ -66,7 +66,8 @@ def parse_args():
     parser.add_argument('--input_size', type=int, default=512)
     parser.add_argument('--inference_size', type=int, default=1024)
     parser.add_argument('--batch_size', type=int, default=12)
-    parser.add_argument('--learning_rate', type=float, default=1e-3)
+    parser.add_argument('--learning_rate', type=float, default=1e-4)
+    parser.add_argument('--weight_decay', type=float, default=1e-2)
     parser.add_argument('--max_epoch', type=int, default=200)
     parser.add_argument('--save_interval', type=int, default=5)
     parser.add_argument('--wandb_name', type=str, default='Unnamed Test')
@@ -91,7 +92,7 @@ def parse_args():
 
 def do_training(data_dir, model_dir, device, image_size, input_size, num_workers, batch_size,
                 learning_rate, max_epoch, save_interval, wandb_name, seed, use_val, val_interval, early_stop, load_from,
-                inference_size):
+                inference_size, weight_decay):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed) # if use multi-GPU
@@ -129,7 +130,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
 
     model = EAST()
     model.to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, betas=(0.9,0.999), weight_decay=0.01)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, betas=(0.9,0.999), weight_decay=weight_decay)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[max_epoch // 2], gamma=0.1)
 
     if load_from and osp.isfile(load_from):
