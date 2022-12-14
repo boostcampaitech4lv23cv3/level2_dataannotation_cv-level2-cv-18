@@ -12,6 +12,7 @@ import torch
 from torch import cuda
 from torch.utils.data import DataLoader
 from torch.optim import lr_scheduler
+from custom_scheduler import CosineAnnealingWarmUpRestarts
 from tqdm import tqdm
 from glob import glob
 
@@ -77,6 +78,7 @@ def parse_args():
     parser.add_argument('--val_interval', type=int, default=1)
     parser.add_argument('--early_stop', type=int, default=5)
     parser.add_argument('--load_from', type=str, default=None)
+    parser.add_argument('--schd', type=str, default='multisteplr') #cosignlr #reducelr
 
     args = parser.parse_args()
 
@@ -92,7 +94,7 @@ def parse_args():
 
 
 def do_training(data_dir, model_dir, device, image_size, input_size, num_workers, batch_size,
-                learning_rate, max_epoch, save_interval, wandb_name, seed, use_val, val_interval, early_stop, load_from,
+                learning_rate, max_epoch, save_interval, wandb_name, seed, use_val, val_interval, early_stop, load_from,schd,
                 inference_size, weight_decay):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -114,7 +116,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, worker_init_fn=seed_worker)
 
     if use_val:
-        val_dataset = ValidSceneTextDataset(data_dir, split='val', image_size=image_size, crop_size=image_size, color_jitter=False)
+        val_dataset = ValidSceneTextDataset(data_dir, split='val', image_size=inference_size, crop_size=inference_size, color_jitter=False)
         val_dataset.load_image()
         print(f"Load valid data {len(val_dataset)}")
         valid_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=ValidSceneTextDataset.collate_fn)
@@ -133,9 +135,20 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
         print(f"Loaded from: [{load_from}]")
 
     model.to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, betas=(0.9,0.999), weight_decay=0.01)
-    scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[max_epoch // 2], gamma=0.1)
-
+    # schd 수정 -------------------
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, betas=(0.9,0.999), weight_decay=weight_decay)
+    if schd == "multisteplr":
+        scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[max_epoch // 2], gamma=0.1)
+    elif schd == 'reducelr':
+        scheduler = lr_scheduler.ReduceLRONPlateau(optimizer)
+    elif schd == 'cosignlr':
+        optimizer = torch.optim.AdamW(model.parameters(), lr=0, betas=(0.9,0.999), weight_decay=0.01) # lr을 왜 0으로 해줄까?
+        print('scheduler = CosineAnnealingWarmup')
+        scheduler = CosineAnnealingWarmUpRestarts(
+            optimizer, T_0=max_epoch, T_mult=1, eta_max=learning_rate, T_up=max_epoch//10, gamma=0.5
+        )
+        
+    # ---------------------------
     stop_cnt = 0
     best_score = 0
     for epoch in range(max_epoch):
@@ -165,9 +178,12 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                     'IoU loss': extra_info['iou_loss']
                 }
                 pbar.set_postfix(val_dict)
-
-        scheduler.step()
-
+        #schd 수정 -------------------------
+        if schd == 'reducelr':
+            scheduler.step(epoch_loss)
+        else:
+            scheduler.step()
+        # --------------------------------
         wandb.log({
             'Train/Cls loss': epoch_cls_loss / num_batches,
             'Train/Angle loss': epoch_angle_loss / num_batches,
