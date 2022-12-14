@@ -1,3 +1,4 @@
+import multiprocessing
 import os.path as osp
 import math
 import json
@@ -188,22 +189,11 @@ def is_cross_text(start_loc, length, vertices):
 
 
 def crop_img(img, vertices, labels, length):
-    '''crop img patches to obtain batch and augment
-    Input:
-        img         : PIL Image
-        vertices    : vertices of text regions <numpy.ndarray, (n,8)>
-        labels      : 1->valid, 0->ignore, <numpy.ndarray, (n,)>
-        length      : length of cropped image region
-    Output:
-        region      : cropped image region
-        new_vertices: new vertices in cropped region
-    '''
     h, w = img.shape[:2]
-    # confirm the shortest side of image >= length
     if h >= w and w < length:
-        img = img.resize((length, int(h * length / w)), Image.BILINEAR)
+        img = cv2.resize(img,(length, int(h * length / w)),interpolation=cv2.INTER_AREA)
     elif h < w and h < length:
-        img = img.resize((int(w * length / h), length), Image.BILINEAR)
+        img = cv2.resize(img,(int(w * length / h), length),interpolation=cv2.INTER_AREA)
     ratio_w = img.shape[1] / w
     ratio_h = img.shape[0] / h
     assert(ratio_w >= 1 and ratio_h >= 1)
@@ -224,7 +214,7 @@ def crop_img(img, vertices, labels, length):
         start_h = int(np.random.rand() * remain_h)
         flag = is_cross_text([start_w, start_h], length, new_vertices[labels==1,:])
     box = (start_w, start_h, start_w + length, start_h + length)
-    region = img.crop(box)
+    region = img[box]
     if new_vertices.size == 0:
         return region, new_vertices
 
@@ -420,3 +410,79 @@ class SceneTextDataset(Dataset):
 
         return image, word_bboxes, roi_mask
       
+class SceneTextDatasetNoAug(Dataset):
+    def __init__(self, root_dir, split='train', image_size=1024, crop_size=512, color_jitter=True,
+                    normalize=True, augmentation=True):
+        self.input_size = crop_size
+        with open(osp.join(root_dir, 'ufo/{}.json'.format(split)), 'r') as f:
+            anno = json.load(f)
+
+        self.anno = anno
+        self.image_fnames = sorted(anno['images'].keys())
+        self.image_dir = osp.join(root_dir, 'images')
+
+        self.image_size, self.crop_size = image_size, crop_size
+
+        self.images = []
+        self.vertices = []
+        self.labels = []
+
+        self.load_image()
+
+    def __len__(self):
+        return len(self.image_fnames)
+    
+    def __load_item__(self, image_fname):
+        image_fpath = osp.join(self.image_dir, image_fname)
+        image = cv2.imread(image_fpath,cv2.IMREAD_COLOR)
+        try:
+            image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+        except:
+            print('FAIL to load :',image_fpath)
+            return None
+        vertices, labels = [], []
+        for word_info in self.anno['images'][image_fname]['words'].values():
+            vertices.append(np.array(word_info['points']).flatten())
+            labels.append(int(not word_info['illegibility']))
+        vertices, labels = np.array(vertices, dtype=np.float32), np.array(labels, dtype=np.int64)
+        vertices, labels = filter_vertices(vertices, labels, ignore_under=10, drop_under=1)
+        image, vertices = resize_img(image, vertices, self.image_size)
+        image, vertices = self.__convert__(image, vertices, self.input_size)
+        return image, vertices, labels
+
+    def load_image(self):
+        with multiprocessing.Pool() as pool:
+            items = pool.map(self.__load_item__, tqdm(self.image_fnames))
+            items = [ item for item in items if item is not None]
+            for image, vertices, labels in items:
+                self.images.append(image)
+                self.vertices.append(vertices)
+                self.labels.append(labels)
+
+    def __convert__(self, img, vertices, size):
+        h, w = img.shape[:2]
+        ratio = size / max(h, w)
+        new_vertices = vertices * ratio
+        if w > h:
+            dst_size = (size, int(h * ratio))
+            img = cv2.resize(img, dst_size, interpolation=cv2.INTER_AREA)
+            img = cv2.copyMakeBorder(img, 0, abs(dst_size[0] - dst_size[1]), 0, 0, cv2.BORDER_CONSTANT, value=0)
+        else:
+            dst_size = (int(w * ratio), size)
+            img = cv2.resize(img,(int(w * ratio), size),interpolation=cv2.INTER_AREA)
+            img = cv2.copyMakeBorder(img, 0, 0, 0, abs(dst_size[0] - dst_size[1]), cv2.BORDER_CONSTANT, value=0)
+
+        return img, new_vertices
+
+    def __getitem__(self, idx):
+        image = self.images[idx]
+        vertices = self.vertices[idx]
+        labels = self.labels[idx]
+        
+        transform = A.Compose([A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))])
+        image = transform(image=image)['image']
+
+        word_bboxes = np.reshape(vertices, (-1, 4, 2))
+        roi_mask = generate_roi_mask(image, vertices, labels)
+
+        return image, word_bboxes, roi_mask
