@@ -46,7 +46,8 @@ def do_inference(model, ckpt_fpath, data_dir, input_size, batch_size, split='pub
 
     image_fnames, by_sample_bboxes = [], []
     
-    input_size_list = [512, 1024, 2048]
+    input_size_list = [1024, 2048]
+    weight_list = [0.9, 0.8]
     images = []
     for image_fpath in tqdm(glob(osp.join(data_dir, '{}/*'.format(split)))):
         image_fnames.append(osp.basename(image_fpath))
@@ -54,18 +55,36 @@ def do_inference(model, ckpt_fpath, data_dir, input_size, batch_size, split='pub
         images.append(cv2.imread(image_fpath)[:, :, ::-1])
         if len(images) == batch_size:
             temp_bboxes = [] ###
-            for size in input_size_list:
-                temp_bboxes.append(detect(model, images, size))
-            temp_bboxes = lanms.merge_quadrangle_n9(temp_bboxes.astype('float32'), nms_thresh)
-            by_sample_bboxes.extend(temp_bboxes)
+            for size, weight in zip(input_size_list, weight_list):
+                temp = detect(model, images, size)
+                for t in temp:
+                    bboxes = t.reshape(-1, 8)
+                    for bbox in bboxes:
+                        temp_bboxes.append(np.append(bbox, weight))
+            temp_bboxes = np.array(temp_bboxes)
+            temp_bboxes = lanms.merge_quadrangle_n9(temp_bboxes, 0.2)
+            if temp_bboxes is None:
+                bboxes = np.zeros((0, 4, 2), dtype=np.float32)
+            else:
+                bboxes = temp_bboxes[:, :8].reshape(-1, 4, 2)
+            by_sample_bboxes.extend(bboxes)
             images = []
 
     if len(images):
         temp_bboxes = [] ###
-        for size in input_size_list:
-            temp_bboxes.append(detect(model, images, size))
-        temp_bboxes = lanms.merge_quadrangle_n9(temp_bboxes.astype('float32'), nms_thresh)
-        by_sample_bboxes.extend(temp_bboxes)
+        for size, weight in zip(input_size_list, weight_list):
+            temp = detect(model, images, size)
+            for t in temp:
+                bboxes = t.reshape(-1, 8)
+                for bbox in bboxes:
+                    temp_bboxes.append(np.append(bbox, weight))
+        temp_bboxes = np.array(temp_bboxes)
+        temp_bboxes = lanms.merge_quadrangle_n9(temp_bboxes, 0.2)
+        if temp_bboxes is None:
+            bboxes = np.zeros((0, 4, 2), dtype=np.float32)
+        else:
+            bboxes = temp_bboxes[:, :8].reshape(-1, 4, 2)
+        by_sample_bboxes.extend(bboxes)
 
     ufo_result = dict(images=dict())
     for image_fname, bboxes in zip(image_fnames, by_sample_bboxes):
