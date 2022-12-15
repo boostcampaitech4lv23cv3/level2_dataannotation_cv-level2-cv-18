@@ -63,7 +63,7 @@ def do_inference(model, ckpt_fpath, data_dir, input_size, batch_size, split='pub
                     temp_bboxes.append(np.append(bbox, weight))
         temp_bboxes = np.array(temp_bboxes)
         temp_bboxes = lanms.merge_quadrangle_n9(temp_bboxes, 0.2)
-        if temp_bboxes is None:
+        if len(temp_bboxes) == 0:
             bboxes = np.zeros((0, 4, 2), dtype=np.float32)
         else:
             bboxes = temp_bboxes[:, :8].reshape(-1, 4, 2)
