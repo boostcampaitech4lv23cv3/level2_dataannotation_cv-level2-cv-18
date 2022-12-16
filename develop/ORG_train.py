@@ -22,7 +22,7 @@ import random
 
 from east_dataset import EASTDataset
 from dataset import ValidSceneTextDataset
-from Geo_dataset import SceneTextDatasetNoAug as SceneTextDataset
+from Geo_dataset import SceneTextDataset as SceneTextDataset
 from model import EAST
 
 from detect import get_bboxes
