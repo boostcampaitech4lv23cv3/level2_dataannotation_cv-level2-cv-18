@@ -5,6 +5,21 @@ artifacts/*
 !.local/README.md
 !.local/demo.jpg
 *.pth
+pths/*
+trained_models/*
+predictions/*
+
+# symbolic link
+develop/convert_mlt.py
+develop/dataset.py
+develop/deteval.py
+develop/inference.py
+develop/train.py
+convert_mlt.py
+dataset.py
+deteval.py
+inference.py
+train.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -187,3 +202,5 @@ cython_debug/
 faster_rcnn_inference.ipynb
 results/
 
+# wonguk data
+/EDA/HierText_Convert
